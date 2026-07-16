@@ -333,10 +333,17 @@ function renderGame() {
       });
       wrap.appendChild(input);
       if (ri > 0) {
+        wrap.classList.add("has-running");
+        const totalText = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+        const balance = document.createElement("span");
+        balance.className = "run-paren-balance";
+        balance.setAttribute("aria-hidden", "true");
+        balance.textContent = totalText;
         const paren = document.createElement("span");
         paren.className = "run-paren";
-        paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+        paren.textContent = totalText;
         if (roundLeaders.has(ci)) paren.classList.add("is-leader");
+        wrap.prepend(balance);
         wrap.appendChild(paren);
       }
       td.appendChild(wrap);
@@ -379,8 +386,11 @@ function updateDerivedScores() {
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
       const paren = td.querySelector(".run-paren");
+      const balance = td.querySelector(".run-paren-balance");
       if (!paren) return;
-      paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+      const text = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+      paren.textContent = text;
+      if (balance) balance.textContent = text;
       paren.classList.toggle("is-leader", roundLeaders.has(ci));
     });
   });
