@@ -117,8 +117,15 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
   flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: transparent;
+  opacity: 0.75;
 }
 
 .icon-btn svg {
@@ -372,25 +379,35 @@ header {
 }
 
 .score-grid tr.running-row td {
-  padding: 2px 4px;
+  padding: 4px 4px 6px;
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--muted);
-  background: var(--running-bg);
-  border-bottom: 1px solid var(--running-border);
+  background: transparent;
+  border-bottom: 1px solid var(--card-border);
   line-height: 1.2;
-  height: 22px;
+  height: auto;
+  vertical-align: top;
 }
 
 .score-grid tr.running-row .round-label {
-  background: var(--running-bg);
+  background: var(--surface);
   font-size: 0.6rem;
 }
 
 .score-grid tr.running-row td.is-leader {
   color: var(--accent2);
   font-weight: 800;
-  background: var(--running-leader-bg);
+  background: transparent;
+}
+
+.score-grid tr.running-row .run-total {
+  display: inline-block;
+  padding: 1px 1ch;
+  border-top: 1.5px solid currentColor;
+  line-height: 1.15;
+  min-width: 1.5ch;
+  text-align: center;
 }
 
 .score-cell {

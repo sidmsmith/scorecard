@@ -324,19 +324,25 @@ function renderGame() {
     }
     tbody.appendChild(tr);
 
+    // Skip redundant running total under round 1 (same as the scores).
+    if (ri === 0) return;
+
     const run = document.createElement("tr");
     run.className = "running-row";
     run.dataset.roundIndex = String(ri);
     const runLabel = document.createElement("td");
     runLabel.className = "round-label";
-    runLabel.textContent = "Σ";
+    runLabel.textContent = "";
     run.appendChild(runLabel);
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
     const roundLeaders = new Set(leaderIndices(roundTotals));
     roundTotals.forEach((t, ci) => {
       const td = document.createElement("td");
       td.dataset.playerIndex = String(ci);
-      td.textContent = formatTotal(t);
+      const span = document.createElement("span");
+      span.className = "run-total";
+      span.textContent = formatTotal(t);
+      td.appendChild(span);
       if (roundLeaders.has(ci)) td.classList.add("is-leader");
       run.appendChild(td);
     });
@@ -375,7 +381,8 @@ function updateDerivedScores() {
     const roundLeaders = new Set(leaderIndices(roundTotals));
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
-      td.textContent = formatTotal(roundTotals[ci] ?? 0);
+      const span = td.querySelector(".run-total");
+      if (span) span.textContent = formatTotal(roundTotals[ci] ?? 0);
       td.classList.toggle("is-leader", roundLeaders.has(ci));
     });
   });
