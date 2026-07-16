@@ -47,6 +47,7 @@
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
+    <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
     <p class="hint">Tap a score to edit (running total hides while typing). Leader’s () is bold.</p>
   </div>
 
@@ -239,11 +240,13 @@ function formatTotal(n) {
   return String(Math.round(n * 1000) / 1000);
 }
 
-/** Offset so (total) sits just right of the centered score digits. */
+/** Offset so (total) sits just right of the centered score digits.
+ *  Blank scores are treated as "0" for positioning (value still not shown). */
 function setScoreOffset(wrap, value) {
-  const len = String(value ?? "").trim().length;
-  // Half the score width in em (approx for digit font) + small gap
-  const offsetEm = len === 0 ? 0.2 : len * 0.32 + 0.2;
+  const trimmed = String(value ?? "").trim();
+  const len = trimmed.length === 0 ? 1 : trimmed.length;
+  // Half the score width in em + gap between score and (total)
+  const offsetEm = len * 0.32 + 0.55;
   wrap.style.setProperty("--score-offset", `${offsetEm}em`);
 }
 
@@ -529,13 +532,16 @@ document.getElementById("confirm-btn").addEventListener("click", () => {
   renderGame();
 });
 
-document.getElementById("add-round-btn").addEventListener("click", () => {
+document.getElementById("add-round-btn").addEventListener("click", addRound);
+document.getElementById("add-round-plus").addEventListener("click", addRound);
+
+function addRound() {
   state.rounds.push(emptyRound(state.players.length));
   renderGame();
   save();
   const wrap = document.querySelector(".grid-wrap");
   if (wrap) wrap.scrollTop = wrap.scrollHeight;
-});
+}
 
 document.getElementById("change-players-btn").addEventListener("click", () => {
   openPlayersModal();
