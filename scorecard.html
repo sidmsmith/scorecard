@@ -195,8 +195,12 @@ function placeAppHeader(viewName) {
 }
 
 function syncToolbarStickyOffset() {
+  const wrap = els.gameScroll;
   const h = els.gameToolbar?.offsetHeight || 52;
   document.documentElement.style.setProperty("--game-toolbar-height", `${h}px`);
+  if (wrap) {
+    wrap.style.setProperty("--scroll-chrome-width", `${wrap.clientWidth}px`);
+  }
 }
 
 function setRowDeleteMode(on) {

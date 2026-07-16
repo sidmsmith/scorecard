@@ -93,10 +93,16 @@ header {
 }
 
 header.in-game-scroll {
+  position: sticky;
+  left: 0;
+  z-index: 7;
   margin: 0;
   padding: 8px 10px 12px;
   border-bottom: 1px solid var(--card-border);
   background: var(--bg);
+  width: var(--scroll-chrome-width, 100%);
+  max-width: var(--scroll-chrome-width, 100%);
+  box-sizing: border-box;
 }
 
 .logo {
@@ -225,10 +231,14 @@ header.in-game-scroll {
   flex-shrink: 0;
   position: sticky;
   top: 0;
+  left: 0;
   z-index: 6;
   padding: 8px;
   background: var(--bg);
   border-bottom: 1px solid var(--card-border);
+  width: var(--scroll-chrome-width, 100%);
+  max-width: var(--scroll-chrome-width, 100%);
+  box-sizing: border-box;
 }
 
 .game-toolbar .btn {
@@ -249,8 +259,8 @@ header.in-game-scroll {
   height: 44px;
   background: var(--surface);
   border-top: 1px solid var(--card-border);
-  width: 100%;
-  max-width: 100%;
+  width: var(--scroll-chrome-width, 100%);
+  max-width: var(--scroll-chrome-width, 100%);
   box-sizing: border-box;
 }
 
