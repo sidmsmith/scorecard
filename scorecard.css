@@ -1,5 +1,6 @@
-/* Scorecard — mobile-first */
-:root {
+/* Scorecard — mobile-first (dark default) */
+:root,
+[data-theme="dark"] {
   --bg: #1a1a2e;
   --surface: #16213e;
   --surface2: #0f3460;
@@ -8,8 +9,40 @@
   --text: #eaeaea;
   --muted: #8892a6;
   --card-border: rgba(255, 255, 255, 0.15);
+  --btn-hover: #1a4a7a;
+  --footer-bg: #0c2748;
+  --leader-bg: #0e5c52;
+  --leader-text: #ffffff;
+  --running-bg: rgba(0, 0, 0, 0.22);
+  --running-border: rgba(255, 255, 255, 0.08);
+  --running-leader-bg: rgba(78, 205, 196, 0.12);
+  --focus-bg: rgba(78, 205, 196, 0.12);
+  --modal-scrim: rgba(0, 0, 0, 0.65);
   --radius: 12px;
-  --cell: 56px;
+  --round-col: 28px;
+  --cell-min-wide: 64px;
+  --theme-color: #1a1a2e;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f4f6f8;
+  --surface2: #e8eef4;
+  --accent: #d63b55;
+  --accent2: #0d9488;
+  --text: #1a1a2e;
+  --muted: #5c6b7a;
+  --card-border: rgba(26, 26, 46, 0.12);
+  --btn-hover: #d5e0ea;
+  --footer-bg: #e0f2f1;
+  --leader-bg: #0d9488;
+  --leader-text: #ffffff;
+  --running-bg: rgba(26, 26, 46, 0.04);
+  --running-border: rgba(26, 26, 46, 0.08);
+  --running-leader-bg: rgba(13, 148, 136, 0.14);
+  --focus-bg: rgba(13, 148, 136, 0.12);
+  --modal-scrim: rgba(26, 26, 46, 0.4);
+  --theme-color: #ffffff;
 }
 
 * {
@@ -74,7 +107,28 @@ header {
 }
 
 .btn:hover {
-  background: #1a4a7a;
+  background: var(--btn-hover);
+}
+
+.icon-btn {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .btn:disabled {
@@ -95,6 +149,10 @@ header {
   background: var(--accent2);
   border-color: var(--accent2);
   color: #1a1a2e;
+}
+
+[data-theme="light"] .btn-accent {
+  color: #ffffff;
 }
 
 .btn-ghost {
@@ -228,8 +286,15 @@ header {
 .score-grid {
   border-collapse: separate;
   border-spacing: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* 5–6 players: allow horizontal scroll with a usable column min-width */
+.score-grid.is-wide {
   width: max-content;
   min-width: 100%;
+  table-layout: auto;
 }
 
 .score-grid th,
@@ -250,14 +315,17 @@ header {
   top: 0;
   z-index: 2;
   background: var(--surface2);
-  padding: 12px 8px;
-  font-size: 0.85rem;
+  padding: 10px 4px;
+  font-size: 0.78rem;
   font-weight: 700;
-  min-width: var(--cell);
-  max-width: 96px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.score-grid.is-wide thead th:not(.round-label),
+.score-grid.is-wide .score-cell {
+  min-width: var(--cell-min-wide);
 }
 
 .score-grid .round-label {
@@ -266,11 +334,12 @@ header {
   z-index: 1;
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  width: 40px;
-  min-width: 40px;
-  padding: 4px;
+  width: var(--round-col);
+  min-width: var(--round-col);
+  max-width: var(--round-col);
+  padding: 4px 2px;
 }
 
 .score-grid thead .round-label {
@@ -283,11 +352,11 @@ header {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: #0c2748;
+  background: var(--footer-bg);
   border-top: 2px solid var(--accent2);
   border-bottom: none;
   font-weight: 800;
-  padding: 12px 6px;
+  padding: 10px 4px;
   color: var(--accent2);
 }
 
@@ -297,47 +366,46 @@ header {
 }
 
 .score-grid tfoot td.is-leader {
-  color: #fff;
-  background: #0e5c52;
+  color: var(--leader-text);
+  background: var(--leader-bg);
   box-shadow: inset 0 0 0 2px var(--accent2);
 }
 
 .score-grid tr.running-row td {
-  padding: 2px 6px;
-  font-size: 0.7rem;
+  padding: 2px 4px;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--muted);
-  background: rgba(0, 0, 0, 0.22);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--running-bg);
+  border-bottom: 1px solid var(--running-border);
   line-height: 1.2;
   height: 22px;
 }
 
 .score-grid tr.running-row .round-label {
-  background: rgba(0, 0, 0, 0.22);
-  font-size: 0.65rem;
+  background: var(--running-bg);
+  font-size: 0.6rem;
 }
 
 .score-grid tr.running-row td.is-leader {
   color: var(--accent2);
   font-weight: 800;
-  background: rgba(78, 205, 196, 0.12);
+  background: var(--running-leader-bg);
 }
 
 .score-cell {
-  padding: 4px;
-  min-width: var(--cell);
+  padding: 2px;
 }
 
 .score-cell input {
   width: 100%;
-  min-width: 48px;
-  height: 48px;
+  min-width: 0;
+  height: 44px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--text);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 600;
   text-align: center;
   -moz-appearance: textfield;
@@ -352,7 +420,7 @@ header {
 .score-cell input:focus {
   outline: none;
   border-color: var(--accent2);
-  background: rgba(78, 205, 196, 0.12);
+  background: var(--focus-bg);
 }
 
 .hint {
@@ -405,12 +473,60 @@ header {
 }
 
 /* Modal */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.setting-row .setting-label {
+  font-weight: 700;
+}
+
+.setting-row .setting-help {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.theme-toggle {
+  display: flex;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.theme-toggle button {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.theme-toggle button.active {
+  background: var(--accent2);
+  color: #1a1a2e;
+}
+
+[data-theme="light"] .theme-toggle button.active {
+  color: #ffffff;
+}
+
 .modal-backdrop {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--modal-scrim);
   align-items: flex-end;
   justify-content: center;
   padding: 12px;

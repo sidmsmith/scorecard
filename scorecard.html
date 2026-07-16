@@ -12,6 +12,12 @@
 <div id="app">
   <header>
     <div class="logo">SCORE<span>CARD</span></div>
+    <button type="button" class="btn icon-btn" id="settings-btn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+      </svg>
+    </button>
   </header>
 
   <div id="view-setup" class="view active">
@@ -79,6 +85,30 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="settings-modal-title">Settings</h2>
+      <button type="button" class="btn btn-ghost" id="settings-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Appearance</div>
+          <div class="setting-help">Light or dark color scheme</div>
+        </div>
+        <div class="theme-toggle" role="group" aria-label="Color theme">
+          <button type="button" id="theme-light-btn" data-theme-choice="light">Light</button>
+          <button type="button" id="theme-dark-btn" data-theme-choice="dark">Dark</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="settings-modal-done">Done</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import {
   MIN_PLAYERS,
@@ -94,6 +124,7 @@ import {
 } from "./lib/scorecard-engine.js";
 
 const STORAGE_KEY = "scorecard-v1";
+const THEME_KEY = "scorecard-theme";
 
 const els = {
   setup: document.getElementById("view-setup"),
@@ -108,6 +139,10 @@ const els = {
   modalNameList: document.getElementById("modal-name-list"),
   modalPlayerCount: document.getElementById("modal-player-count"),
   modalError: document.getElementById("modal-error"),
+  settingsModal: document.getElementById("settings-modal"),
+  themeLightBtn: document.getElementById("theme-light-btn"),
+  themeDarkBtn: document.getElementById("theme-dark-btn"),
+  themeMeta: document.querySelector('meta[name="theme-color"]'),
 };
 
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
@@ -119,6 +154,45 @@ let state = {
 
 /** @type {{ name: string, fromIndex: number | null }[]} */
 let draftPlayers = [];
+
+function applyTheme(theme) {
+  const next = theme === "light" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  els.themeLightBtn.classList.toggle("active", next === "light");
+  els.themeDarkBtn.classList.toggle("active", next === "dark");
+  if (els.themeMeta) {
+    els.themeMeta.setAttribute(
+      "content",
+      next === "light" ? "#ffffff" : "#1a1a2e"
+    );
+  }
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadTheme() {
+  let theme = "dark";
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "light" || saved === "dark") theme = saved;
+  } catch {
+    /* ignore */
+  }
+  applyTheme(theme);
+}
+
+function openSettingsModal() {
+  els.settingsModal.hidden = false;
+  els.settingsModal.classList.add("open");
+}
+
+function closeSettingsModal() {
+  els.settingsModal.classList.remove("open");
+  els.settingsModal.hidden = true;
+}
 
 function save() {
   try {
@@ -285,6 +359,8 @@ function renderGame() {
   tfoot.appendChild(footRow);
 
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
+  els.scoreGrid.classList.toggle("is-wide", players.length > 4);
+  els.scoreGrid.dataset.players = String(players.length);
 }
 
 function updateDerivedScores() {
@@ -441,6 +517,15 @@ document.getElementById("change-players-btn").addEventListener("click", () => {
   openPlayersModal();
 });
 
+document.getElementById("settings-btn").addEventListener("click", openSettingsModal);
+document.getElementById("settings-modal-close").addEventListener("click", closeSettingsModal);
+document.getElementById("settings-modal-done").addEventListener("click", closeSettingsModal);
+els.settingsModal.addEventListener("click", (e) => {
+  if (e.target === els.settingsModal) closeSettingsModal();
+});
+els.themeLightBtn.addEventListener("click", () => applyTheme("light"));
+els.themeDarkBtn.addEventListener("click", () => applyTheme("dark"));
+
 document.getElementById("players-modal-close").addEventListener("click", closePlayersModal);
 document.getElementById("players-modal-cancel").addEventListener("click", closePlayersModal);
 els.modal.addEventListener("click", (e) => {
@@ -499,6 +584,7 @@ document.getElementById("end-btn").addEventListener("click", () => {
   renderSetup();
 });
 
+loadTheme();
 load();
 if (state.view === "game" && (!state.rounds.length || !state.players.length)) {
   Object.assign(state, endGameFresh());
