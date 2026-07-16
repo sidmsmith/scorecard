@@ -615,6 +615,7 @@ function renderGame() {
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
   els.scoreGrid.classList.toggle("row-delete-mode", rowDeleteMode);
   els.scoreGrid.dataset.players = String(players.length);
+  els.gameScroll?.classList.toggle("is-wide", players.length > 4);
   applyColumnWidths(players.length);
   syncToolbarStickyOffset();
 }
@@ -983,6 +984,15 @@ els.gameScroll?.addEventListener("click", (e) => {
   if (!rowDeleteMode) return;
   if (e.target.closest("tbody .round-label")) return;
   setRowDeleteMode(false);
+});
+
+// Reduce accidental browser-back from horizontal trackpad / edge swipe.
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+history.pushState({ scorecard: true }, "");
+window.addEventListener("popstate", () => {
+  history.pushState({ scorecard: true }, "");
 });
 </script>
 </body>
