@@ -47,7 +47,7 @@
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
-    <p class="hint">Tap any score to edit. Thin rows are running totals. Leader highlighted.</p>
+    <p class="hint">Tap any score to edit. From round 2, (totals) show running sum; leader’s () is bold.</p>
   </div>
 
   <div id="view-ended" class="view">
@@ -293,13 +293,19 @@ function renderGame() {
   rounds.forEach((row, ri) => {
     const tr = document.createElement("tr");
     tr.className = "score-row";
+    tr.dataset.roundIndex = String(ri);
     const label = document.createElement("td");
     label.className = "round-label";
     label.textContent = String(ri + 1);
     tr.appendChild(label);
+    const roundTotals = cumulative[ri] || Array(players.length).fill(0);
+    const roundLeaders = new Set(leaderIndices(roundTotals));
     for (let ci = 0; ci < players.length; ci++) {
       const td = document.createElement("td");
       td.className = "score-cell";
+      td.dataset.playerIndex = String(ci);
+      const wrap = document.createElement("div");
+      wrap.className = "score-wrap";
       const input = document.createElement("input");
       input.type = "text";
       input.inputMode = "decimal";
@@ -319,34 +325,18 @@ function renderGame() {
         updateDerivedScores();
         save();
       });
-      td.appendChild(input);
+      wrap.appendChild(input);
+      if (ri > 0) {
+        const paren = document.createElement("span");
+        paren.className = "run-paren";
+        paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+        if (roundLeaders.has(ci)) paren.classList.add("is-leader");
+        wrap.appendChild(paren);
+      }
+      td.appendChild(wrap);
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
-
-    // Skip redundant running total under round 1 (same as the scores).
-    if (ri === 0) return;
-
-    const run = document.createElement("tr");
-    run.className = "running-row";
-    run.dataset.roundIndex = String(ri);
-    const runLabel = document.createElement("td");
-    runLabel.className = "round-label";
-    runLabel.textContent = "";
-    run.appendChild(runLabel);
-    const roundTotals = cumulative[ri] || Array(players.length).fill(0);
-    const roundLeaders = new Set(leaderIndices(roundTotals));
-    roundTotals.forEach((t, ci) => {
-      const td = document.createElement("td");
-      td.dataset.playerIndex = String(ci);
-      const span = document.createElement("span");
-      span.className = "run-total";
-      span.textContent = formatTotal(t);
-      td.appendChild(span);
-      if (roundLeaders.has(ci)) td.classList.add("is-leader");
-      run.appendChild(td);
-    });
-    tbody.appendChild(run);
   });
 
   const tfoot = document.createElement("tfoot");
@@ -375,15 +365,17 @@ function updateDerivedScores() {
   const totals = columnTotals(state.rounds, players.length);
   const overallLeaders = new Set(leaderIndices(totals));
 
-  els.scoreGrid.querySelectorAll("tr.running-row").forEach((tr) => {
+  els.scoreGrid.querySelectorAll("tr.score-row").forEach((tr) => {
     const ri = Number(tr.dataset.roundIndex);
+    if (ri < 1) return;
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
     const roundLeaders = new Set(leaderIndices(roundTotals));
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
-      const span = td.querySelector(".run-total");
-      if (span) span.textContent = formatTotal(roundTotals[ci] ?? 0);
-      td.classList.toggle("is-leader", roundLeaders.has(ci));
+      const paren = td.querySelector(".run-paren");
+      if (!paren) return;
+      paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
+      paren.classList.toggle("is-leader", roundLeaders.has(ci));
     });
   });
 

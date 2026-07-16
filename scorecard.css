@@ -378,46 +378,23 @@ header {
   box-shadow: inset 0 0 0 2px var(--accent2);
 }
 
-.score-grid tr.running-row td {
-  padding: 4px 4px 6px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border-bottom: 1px solid var(--card-border);
-  line-height: 1.2;
-  height: auto;
-  vertical-align: top;
-}
-
-.score-grid tr.running-row .round-label {
-  background: var(--surface);
-  font-size: 0.6rem;
-}
-
-.score-grid tr.running-row td.is-leader {
-  color: var(--accent2);
-  font-weight: 800;
-  background: transparent;
-}
-
-.score-grid tr.running-row .run-total {
-  display: inline-block;
-  padding: 1px 1ch;
-  border-top: 1.5px solid currentColor;
-  line-height: 1.15;
-  min-width: 1.5ch;
-  text-align: center;
-}
-
 .score-cell {
   padding: 2px;
+}
+
+.score-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
 }
 
 .score-cell input {
   width: 100%;
   min-width: 0;
-  height: 44px;
+  height: 40px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -438,6 +415,20 @@ header {
   outline: none;
   border-color: var(--accent2);
   background: var(--focus-bg);
+}
+
+.run-paren {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.1;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.run-paren.is-leader {
+  font-weight: 800;
+  color: var(--text);
 }
 
 .hint {
