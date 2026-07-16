@@ -385,7 +385,7 @@ header {
 .score-grid tfoot tr.totals-row .round-label,
 .score-grid tfoot tr.totals-row td {
   position: sticky;
-  bottom: 36px;
+  bottom: 52px;
   z-index: 2;
   background: var(--footer-bg);
   border-top: 2px solid var(--accent2);
@@ -425,7 +425,7 @@ header {
   background: var(--surface);
   border: none;
   border-top: none;
-  padding: 0;
+  padding: 10px 0 14px;
   font-weight: 400;
   color: inherit;
   text-align: center;
@@ -660,6 +660,39 @@ header {
   font-size: 1.1rem;
   line-height: 1;
   color: var(--accent);
+}
+
+.name-row .drag-handle {
+  width: 36px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  letter-spacing: -2px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.7;
+}
+
+.name-row .drag-handle:active {
+  cursor: grabbing;
+}
+
+.name-row.is-dragging {
+  opacity: 0.55;
+}
+
+.name-row.drag-over {
+  outline: 2px solid var(--accent2);
+  outline-offset: -2px;
+  border-radius: 8px;
 }
 
 @media (min-width: 520px) {

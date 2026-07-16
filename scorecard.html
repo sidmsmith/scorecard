@@ -69,7 +69,7 @@
       <button type="button" class="btn btn-ghost" id="players-modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body">
-      <p class="view-sub">Rename, remove, or add players (1–6). Scores for kept players stay; new players start blank.</p>
+      <p class="view-sub">Rename, remove, reorder (drag ≡), or add players (1–6). Scores move with each player.</p>
       <div class="setup-count">
         <button type="button" class="btn count-btn" id="modal-player-dec" aria-label="Fewer players">−</button>
         <div class="count-label"><span id="modal-player-count">2</span> players</div>
@@ -479,7 +479,21 @@ function renderGame() {
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
   els.scoreGrid.dataset.players = String(players.length);
+  applyColumnWidths(players.length);
   updateGameHint();
+}
+
+function applyColumnWidths(playerCount) {
+  const wrap = document.querySelector(".grid-wrap");
+  if (!wrap || !els.scoreGrid) return;
+  if (playerCount <= 4) {
+    els.scoreGrid.style.removeProperty("--player-col-width");
+    return;
+  }
+  const roundCol = 28;
+  const available = Math.max(wrap.clientWidth - roundCol, 200);
+  const colW = Math.max(56, Math.floor(available / 4));
+  els.scoreGrid.style.setProperty("--player-col-width", `${colW}px`);
 }
 
 function updateDerivedScores() {
@@ -575,6 +589,18 @@ function renderModalPlayers() {
   draftPlayers.forEach((player, i) => {
     const row = document.createElement("div");
     row.className = "name-row";
+    row.dataset.draftIndex = String(i);
+
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "drag-handle";
+    handle.setAttribute("aria-label", `Drag to reorder player ${i + 1}`);
+    handle.textContent = "≡";
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      startPlayerDrag(e, i, row);
+    });
+
     const label = document.createElement("label");
     label.textContent = String(i + 1);
     label.htmlFor = `modal-player-name-${i}`;
@@ -600,9 +626,75 @@ function renderModalPlayers() {
       els.modalError.textContent = "";
       renderModalPlayers();
     });
-    row.append(label, input, remove);
+    row.append(handle, label, input, remove);
     els.modalNameList.appendChild(row);
   });
+}
+
+/** @type {{ from: number, row: HTMLElement, hover: number, pointerId: number } | null} */
+let playerDrag = null;
+
+function clearDragOver() {
+  els.modalNameList.querySelectorAll(".name-row").forEach((r) => {
+    r.classList.remove("drag-over");
+  });
+}
+
+function startPlayerDrag(e, fromIndex, row) {
+  e.preventDefault();
+  playerDrag = {
+    from: fromIndex,
+    row,
+    hover: fromIndex,
+    pointerId: e.pointerId,
+  };
+  row.classList.add("is-dragging");
+  try {
+    row.setPointerCapture(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+  row.addEventListener("pointermove", onPlayerDragMove);
+  row.addEventListener("pointerup", onPlayerDragEnd);
+  row.addEventListener("pointercancel", onPlayerDragEnd);
+}
+
+function onPlayerDragMove(e) {
+  if (!playerDrag) return;
+  const rows = [...els.modalNameList.querySelectorAll(".name-row")];
+  let hover = playerDrag.from;
+  for (let i = 0; i < rows.length; i++) {
+    const rect = rows[i].getBoundingClientRect();
+    if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+      hover = i;
+      break;
+    }
+  }
+  playerDrag.hover = hover;
+  rows.forEach((r, i) => {
+    r.classList.toggle("drag-over", i === hover && i !== playerDrag.from);
+  });
+}
+
+function onPlayerDragEnd(e) {
+  if (!playerDrag) return;
+  const { from, hover, row, pointerId } = playerDrag;
+  row.removeEventListener("pointermove", onPlayerDragMove);
+  row.removeEventListener("pointerup", onPlayerDragEnd);
+  row.removeEventListener("pointercancel", onPlayerDragEnd);
+  try {
+    row.releasePointerCapture(pointerId);
+  } catch {
+    /* ignore */
+  }
+  row.classList.remove("is-dragging");
+  clearDragOver();
+  playerDrag = null;
+  if (from !== hover) {
+    const [item] = draftPlayers.splice(from, 1);
+    draftPlayers.splice(hover, 0, item);
+    renderModalPlayers();
+  }
 }
 
 document.getElementById("player-dec").addEventListener("click", () => {
@@ -754,6 +846,10 @@ if (state.view === "ended" && !state.players.length) {
   Object.assign(state, endGameFresh());
 }
 render();
+
+window.addEventListener("resize", () => {
+  if (state.view === "game") applyColumnWidths(state.players.length);
+});
 </script>
 </body>
 </html>
