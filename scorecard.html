@@ -47,7 +47,7 @@
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
-    <p class="hint">Tap any score to edit. From round 2, (totals) show running sum; leader’s () is bold.</p>
+    <p class="hint">Tap a score to edit (running total hides while typing). Leader’s () is bold.</p>
   </div>
 
   <div id="view-ended" class="view">
@@ -312,7 +312,13 @@ function renderGame() {
       input.autocomplete = "off";
       input.value = row[ci] ?? "";
       input.setAttribute("aria-label", `${players[ci]} round ${ri + 1}`);
-      input.addEventListener("focus", () => input.select());
+      input.addEventListener("focus", () => {
+        input.select();
+        wrap.classList.add("is-editing");
+      });
+      input.addEventListener("blur", () => {
+        wrap.classList.remove("is-editing");
+      });
       input.addEventListener("input", () => {
         if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
         state.rounds[ri][ci] = input.value;
