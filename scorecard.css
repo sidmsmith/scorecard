@@ -92,6 +92,13 @@ header {
   flex-shrink: 0;
 }
 
+header.in-game-scroll {
+  margin: 0;
+  padding: 8px 10px 12px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--bg);
+}
+
 .logo {
   font-size: 1.4rem;
   font-weight: 800;
@@ -195,10 +202,20 @@ header {
   display: flex;
 }
 
-/* Game view: only the score grid scrolls */
+/* Game view: only game-scroll scrolls; logo scrolls away */
 #view-game.active {
   overflow: hidden;
-  gap: 10px;
+  gap: 0;
+}
+
+.game-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
 }
 
 .game-toolbar {
@@ -206,6 +223,63 @@ header {
   gap: 8px;
   flex-wrap: wrap;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.game-toolbar .btn {
+  flex: 1;
+  min-width: 90px;
+  font-size: 0.8rem;
+  padding: 10px 10px;
+}
+
+.plus-strip {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+  background: var(--surface);
+  border-top: 1px solid var(--card-border);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.add-round-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.75rem;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.45;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-round-plus:hover {
+  opacity: 0.75;
+  color: var(--accent2);
+}
+
+.add-round-plus:active {
+  opacity: 1;
 }
 
 .view-title {
@@ -294,68 +368,6 @@ header {
 }
 
 /* Game */
-.game-toolbar .btn {
-  flex: 1;
-  min-width: 90px;
-  font-size: 0.8rem;
-  padding: 10px 10px;
-}
-
-.grid-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  -webkit-overflow-scrolling: touch;
-}
-
-.plus-strip {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  z-index: 5;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 44px;
-  background: var(--surface);
-  border-top: 1px solid var(--card-border);
-  /* Keep strip viewport-width of the scrollport, not the wide table */
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.add-round-plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.75rem;
-  font-weight: 300;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.45;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.add-round-plus:hover {
-  opacity: 0.75;
-  color: var(--accent2);
-}
-
-.add-round-plus:active {
-  opacity: 1;
-}
-
 .score-grid {
   border-collapse: separate;
   border-spacing: 0;
@@ -385,7 +397,7 @@ header {
 
 .score-grid thead th {
   position: sticky;
-  top: 0;
+  top: var(--game-toolbar-height, 52px);
   z-index: 2;
   background: var(--surface2);
   padding: 10px 4px;
@@ -417,10 +429,28 @@ header {
   min-width: var(--round-col);
   max-width: var(--round-col);
   padding: 4px 2px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.score-grid tbody .round-label {
+  cursor: pointer;
+}
+
+.score-grid.row-delete-mode tbody .round-label.row-delete-btn {
+  color: var(--accent);
+}
+
+.score-grid.row-delete-mode tbody .round-label.row-delete-btn svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  margin: 0 auto;
 }
 
 .score-grid thead .round-label {
-  top: 0;
+  top: var(--game-toolbar-height, 52px);
   left: 0;
   z-index: 4;
   background: var(--surface2);

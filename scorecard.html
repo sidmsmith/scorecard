@@ -10,7 +10,7 @@
 </head>
 <body>
 <div id="app">
-  <header>
+  <header id="app-header">
     <div class="logo">SCORE<span>CARD</span></div>
     <button type="button" class="btn icon-btn" id="settings-btn" aria-label="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -33,12 +33,12 @@
   </div>
 
   <div id="view-game" class="view">
-    <div class="game-toolbar">
-      <button type="button" class="btn btn-accent" id="add-round-btn">Add round</button>
-      <button type="button" class="btn" id="change-players-btn">Change players</button>
-      <button type="button" class="btn btn-primary" id="end-game-btn">End game</button>
-    </div>
-    <div class="grid-wrap">
+    <div class="game-scroll" id="game-scroll">
+      <div class="game-toolbar" id="game-toolbar">
+        <button type="button" class="btn btn-accent" id="add-round-btn">Add round</button>
+        <button type="button" class="btn" id="change-players-btn">Change players</button>
+        <button type="button" class="btn btn-primary" id="end-game-btn">End game</button>
+      </div>
       <table class="score-grid" id="score-grid"></table>
       <div class="plus-strip">
         <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
@@ -156,6 +156,10 @@ const els = {
   boldLeaderOn: document.getElementById("bold-leader-on"),
   boldLeaderOff: document.getElementById("bold-leader-off"),
   boldLeaderRow: document.getElementById("setting-bold-leader"),
+  appHeader: document.getElementById("app-header"),
+  gameScroll: document.getElementById("game-scroll"),
+  gameToolbar: document.getElementById("game-toolbar"),
+  appRoot: document.getElementById("app"),
 };
 
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
@@ -173,6 +177,58 @@ let prefs = {
 
 /** @type {{ name: string, fromIndex: number | null }[]} */
 let draftPlayers = [];
+
+let rowDeleteMode = false;
+let lastRoundTap = { ri: -1, t: 0 };
+
+function placeAppHeader(viewName) {
+  if (!els.appHeader || !els.gameScroll || !els.appRoot) return;
+  if (viewName === "game") {
+    els.gameScroll.prepend(els.appHeader);
+    els.appHeader.classList.add("in-game-scroll");
+  } else if (els.appHeader.parentElement !== els.appRoot) {
+    els.appRoot.insertBefore(els.appHeader, els.appRoot.firstChild);
+    els.appHeader.classList.remove("in-game-scroll");
+  }
+}
+
+function syncToolbarStickyOffset() {
+  const h = els.gameToolbar?.offsetHeight || 52;
+  document.documentElement.style.setProperty("--game-toolbar-height", `${h}px`);
+}
+
+function setRowDeleteMode(on) {
+  rowDeleteMode = Boolean(on);
+  if (!rowDeleteMode) lastRoundTap = { ri: -1, t: 0 };
+  if (state.view === "game") renderGame();
+}
+
+function removeRoundAt(ri) {
+  state.rounds.splice(ri, 1);
+  if (!state.rounds.length) {
+    state.rounds = [emptyRound(state.players.length)];
+  }
+  rowDeleteMode = false;
+  lastRoundTap = { ri: -1, t: 0 };
+  renderGame();
+  save();
+}
+
+function onRoundLabelActivate(e, ri) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (rowDeleteMode) {
+    removeRoundAt(ri);
+    return;
+  }
+  const now = Date.now();
+  if (lastRoundTap.ri === ri && now - lastRoundTap.t < 400) {
+    lastRoundTap = { ri: -1, t: 0 };
+    setRowDeleteMode(true);
+  } else {
+    lastRoundTap = { ri, t: now };
+  }
+}
 
 function savePrefs() {
   try {
@@ -284,6 +340,10 @@ function showView(name) {
     ended: els.ended,
   })) {
     el.classList.toggle("active", key === name);
+  }
+  placeAppHeader(name);
+  if (name === "game") {
+    requestAnimationFrame(syncToolbarStickyOffset);
   }
   save();
 }
@@ -453,7 +513,15 @@ function renderGame() {
     tr.dataset.roundIndex = String(ri);
     const label = document.createElement("td");
     label.className = "round-label";
-    label.textContent = String(ri + 1);
+    if (rowDeleteMode) {
+      label.classList.add("row-delete-btn");
+      label.setAttribute("aria-label", `Delete round ${ri + 1}`);
+      label.appendChild(trashIconSvg());
+    } else {
+      label.textContent = String(ri + 1);
+      label.setAttribute("aria-label", `Round ${ri + 1}. Double tap to delete rounds`);
+    }
+    label.addEventListener("click", (e) => onRoundLabelActivate(e, ri));
     tr.appendChild(label);
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
     const roundLeaders = new Set(leaderIndices(roundTotals));
@@ -528,12 +596,14 @@ function renderGame() {
 
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
+  els.scoreGrid.classList.toggle("row-delete-mode", rowDeleteMode);
   els.scoreGrid.dataset.players = String(players.length);
   applyColumnWidths(players.length);
+  syncToolbarStickyOffset();
 }
 
 function applyColumnWidths(playerCount) {
-  const wrap = document.querySelector(".grid-wrap");
+  const wrap = els.gameScroll;
   if (!wrap || !els.scoreGrid) return;
   if (playerCount <= 4) {
     els.scoreGrid.style.removeProperty("--player-col-width");
@@ -753,10 +823,10 @@ document.getElementById("add-round-plus").addEventListener("click", addRound);
 
 function addRound() {
   state.rounds.push(emptyRound(state.players.length));
+  rowDeleteMode = false;
   renderGame();
   save();
-  const wrap = document.querySelector(".grid-wrap");
-  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  if (els.gameScroll) els.gameScroll.scrollTop = els.gameScroll.scrollHeight;
 }
 
 document.getElementById("change-players-btn").addEventListener("click", () => {
@@ -866,7 +936,16 @@ if (state.view === "ended" && !state.players.length) {
 render();
 
 window.addEventListener("resize", () => {
-  if (state.view === "game") applyColumnWidths(state.players.length);
+  if (state.view === "game") {
+    applyColumnWidths(state.players.length);
+    syncToolbarStickyOffset();
+  }
+});
+
+els.gameScroll?.addEventListener("click", (e) => {
+  if (!rowDeleteMode) return;
+  if (e.target.closest("tbody .round-label")) return;
+  setRowDeleteMode(false);
 });
 </script>
 </body>
