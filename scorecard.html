@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<title>Scorecard</title>
+<link rel="stylesheet" href="scorecard.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">SCORE<span>CARD</span></div>
+  </header>
+
+  <div id="view-setup" class="view active">
+    <div class="view-title">New game</div>
+    <p class="view-sub">Enter 1–6 players, then confirm to start scoring.</p>
+
+    <div class="setup-count">
+      <button type="button" class="btn count-btn" id="player-dec" aria-label="Fewer players">−</button>
+      <div class="count-label"><span id="player-count">2</span> players</div>
+      <button type="button" class="btn count-btn" id="player-inc" aria-label="More players">+</button>
+    </div>
+
+    <div class="name-list" id="name-list"></div>
+    <div class="setup-error" id="setup-error"></div>
+
+    <div class="setup-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="confirm-btn">Confirm</button>
+    </div>
+  </div>
+
+  <div id="view-game" class="view">
+    <div class="game-toolbar">
+      <button type="button" class="btn btn-accent" id="add-round-btn">Add round</button>
+      <button type="button" class="btn btn-primary" id="end-game-btn">End game</button>
+    </div>
+    <div class="grid-wrap">
+      <table class="score-grid" id="score-grid"></table>
+    </div>
+    <p class="hint">Tap any score to edit. Blank = 0. Totals update live.</p>
+  </div>
+
+  <div id="view-ended" class="view">
+    <div class="view-title">Game over</div>
+    <p class="view-sub">Final totals</p>
+    <div class="ended-list" id="ended-list"></div>
+    <div class="ended-actions">
+      <button type="button" class="btn btn-accent btn-lg" id="restart-btn">Restart</button>
+      <button type="button" class="btn btn-primary btn-lg" id="end-btn">End</button>
+    </div>
+    <p class="hint">Restart keeps the same players. End starts over with new names.</p>
+  </div>
+</div>
+
+<script type="module">
+import {
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+  normalizePlayerNames,
+  columnTotals,
+  emptyRound,
+  restartGame,
+  endGameFresh,
+} from "./lib/scorecard-engine.js";
+
+const STORAGE_KEY = "scorecard-v1";
+
+const els = {
+  setup: document.getElementById("view-setup"),
+  game: document.getElementById("view-game"),
+  ended: document.getElementById("view-ended"),
+  nameList: document.getElementById("name-list"),
+  playerCount: document.getElementById("player-count"),
+  setupError: document.getElementById("setup-error"),
+  scoreGrid: document.getElementById("score-grid"),
+  endedList: document.getElementById("ended-list"),
+};
+
+/** @type {{ view: string, players: string[], rounds: string[][] }} */
+let state = {
+  view: "setup",
+  players: ["", ""],
+  rounds: [],
+};
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.players)) return;
+    state = {
+      view: parsed.view === "game" || parsed.view === "ended" ? parsed.view : "setup",
+      players: parsed.players.map((p) => String(p ?? "")),
+      rounds: Array.isArray(parsed.rounds)
+        ? parsed.rounds.map((row) =>
+            Array.isArray(row) ? row.map((c) => String(c ?? "")) : []
+          )
+        : [],
+    };
+  } catch {
+    /* ignore */
+  }
+}
+
+function showView(name) {
+  state.view = name;
+  for (const [key, el] of Object.entries({
+    setup: els.setup,
+    game: els.game,
+    ended: els.ended,
+  })) {
+    el.classList.toggle("active", key === name);
+  }
+  save();
+}
+
+function renderSetup() {
+  const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, state.players.length || 2));
+  while (state.players.length < n) state.players.push("");
+  while (state.players.length > n) state.players.pop();
+
+  els.playerCount.textContent = String(state.players.length);
+  els.nameList.innerHTML = "";
+  state.players.forEach((name, i) => {
+    const row = document.createElement("div");
+    row.className = "name-row";
+    const label = document.createElement("label");
+    label.textContent = String(i + 1);
+    label.htmlFor = `player-name-${i}`;
+    const input = document.createElement("input");
+    input.id = `player-name-${i}`;
+    input.type = "text";
+    input.autocomplete = "off";
+    input.placeholder = `Player ${i + 1}`;
+    input.value = name;
+    input.addEventListener("input", () => {
+      state.players[i] = input.value;
+      els.setupError.textContent = "";
+      save();
+    });
+    row.append(label, input);
+    els.nameList.appendChild(row);
+  });
+}
+
+function renderGame() {
+  const players = state.players;
+  const rounds = state.rounds;
+  const totals = columnTotals(rounds, players.length);
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const corner = document.createElement("th");
+  corner.className = "round-label";
+  corner.textContent = "#";
+  headRow.appendChild(corner);
+  players.forEach((name) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    th.title = name;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+
+  const tbody = document.createElement("tbody");
+  rounds.forEach((row, ri) => {
+    const tr = document.createElement("tr");
+    const label = document.createElement("td");
+    label.className = "round-label";
+    label.textContent = String(ri + 1);
+    tr.appendChild(label);
+    for (let ci = 0; ci < players.length; ci++) {
+      const td = document.createElement("td");
+      td.className = "score-cell";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.inputMode = "decimal";
+      input.autocomplete = "off";
+      input.value = row[ci] ?? "";
+      input.setAttribute("aria-label", `${players[ci]} round ${ri + 1}`);
+      input.addEventListener("focus", () => input.select());
+      input.addEventListener("input", () => {
+        if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
+        state.rounds[ri][ci] = input.value;
+        updateTotalsOnly();
+        save();
+      });
+      input.addEventListener("change", () => {
+        if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
+        state.rounds[ri][ci] = input.value;
+        updateTotalsOnly();
+        save();
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+
+  const tfoot = document.createElement("tfoot");
+  const footRow = document.createElement("tr");
+  const totalLabel = document.createElement("td");
+  totalLabel.className = "round-label";
+  totalLabel.textContent = "Σ";
+  footRow.appendChild(totalLabel);
+  totals.forEach((t, i) => {
+    const td = document.createElement("td");
+    td.dataset.totalIndex = String(i);
+    td.textContent = formatTotal(t);
+    footRow.appendChild(td);
+  });
+  tfoot.appendChild(footRow);
+
+  els.scoreGrid.replaceChildren(thead, tbody, tfoot);
+}
+
+function formatTotal(n) {
+  if (Number.isInteger(n)) return String(n);
+  return String(Math.round(n * 1000) / 1000);
+}
+
+function updateTotalsOnly() {
+  const totals = columnTotals(state.rounds, state.players.length);
+  els.scoreGrid.querySelectorAll("tfoot td[data-total-index]").forEach((td) => {
+    const i = Number(td.dataset.totalIndex);
+    td.textContent = formatTotal(totals[i] ?? 0);
+  });
+}
+
+function renderEnded() {
+  const totals = columnTotals(state.rounds, state.players.length);
+  const ranked = state.players
+    .map((name, i) => ({ name, total: totals[i] ?? 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  els.endedList.innerHTML = "";
+  ranked.forEach(({ name, total }) => {
+    const row = document.createElement("div");
+    row.className = "ended-row";
+    const n = document.createElement("span");
+    n.className = "name";
+    n.textContent = name;
+    const t = document.createElement("span");
+    t.className = "total";
+    t.textContent = formatTotal(total);
+    row.append(n, t);
+    els.endedList.appendChild(row);
+  });
+}
+
+function render() {
+  if (state.view === "setup") {
+    showView("setup");
+    renderSetup();
+  } else if (state.view === "game") {
+    showView("game");
+    renderGame();
+  } else {
+    showView("ended");
+    renderEnded();
+  }
+}
+
+document.getElementById("player-dec").addEventListener("click", () => {
+  if (state.players.length <= MIN_PLAYERS) return;
+  state.players.pop();
+  els.setupError.textContent = "";
+  renderSetup();
+  save();
+});
+
+document.getElementById("player-inc").addEventListener("click", () => {
+  if (state.players.length >= MAX_PLAYERS) return;
+  state.players.push("");
+  els.setupError.textContent = "";
+  renderSetup();
+  save();
+});
+
+document.getElementById("confirm-btn").addEventListener("click", () => {
+  const names = [...els.nameList.querySelectorAll("input")].map((el) => el.value);
+  const result = normalizePlayerNames(names);
+  if (!result.ok) {
+    els.setupError.textContent = result.error;
+    return;
+  }
+  state.players = result.names;
+  state.rounds = [emptyRound(result.names.length)];
+  els.setupError.textContent = "";
+  showView("game");
+  renderGame();
+});
+
+document.getElementById("add-round-btn").addEventListener("click", () => {
+  state.rounds.push(emptyRound(state.players.length));
+  renderGame();
+  save();
+  const wrap = document.querySelector(".grid-wrap");
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+});
+
+document.getElementById("end-game-btn").addEventListener("click", () => {
+  showView("ended");
+  renderEnded();
+});
+
+document.getElementById("restart-btn").addEventListener("click", () => {
+  Object.assign(state, restartGame(state.players));
+  showView("game");
+  renderGame();
+});
+
+document.getElementById("end-btn").addEventListener("click", () => {
+  Object.assign(state, endGameFresh());
+  showView("setup");
+  renderSetup();
+});
+
+load();
+if (state.view === "game" && (!state.rounds.length || !state.players.length)) {
+  Object.assign(state, endGameFresh());
+}
+if (state.view === "ended" && !state.players.length) {
+  Object.assign(state, endGameFresh());
+}
+render();
+</script>
+</body>
+</html>
