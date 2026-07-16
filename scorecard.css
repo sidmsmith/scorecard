@@ -408,6 +408,18 @@ header {
   -moz-appearance: textfield;
 }
 
+.score-cell input::-webkit-outer-spin-button,
+.score-cell input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score-cell input:focus {
+  outline: none;
+  border-color: var(--accent2);
+  background: var(--focus-bg);
+}
+
 .score-wrap.is-editing .run-paren {
   display: none;
 }
