@@ -294,15 +294,26 @@ header {
   -webkit-overflow-scrolling: touch;
 }
 
+.plus-strip {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+  background: var(--surface);
+  border-top: 1px solid var(--card-border);
+}
+
 .add-round-plus {
-  align-self: center;
-  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -394,7 +405,7 @@ header {
 .score-grid tfoot tr.totals-row .round-label,
 .score-grid tfoot tr.totals-row td {
   position: sticky;
-  bottom: 0;
+  bottom: 44px;
   z-index: 2;
   background: var(--footer-bg);
   border-top: 2px solid var(--accent2);

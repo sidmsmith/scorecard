@@ -22,7 +22,6 @@
 
   <div id="view-setup" class="view active">
     <div class="view-title">New game</div>
-    <p class="view-sub">Add 1–6 players, drag numbers to reorder, then confirm.</p>
 
     <div class="name-list" id="name-list"></div>
     <button type="button" class="add-player-plus" id="setup-add-player" aria-label="Add player">+</button>
@@ -41,20 +40,19 @@
     </div>
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
+      <div class="plus-strip">
+        <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
+      </div>
     </div>
-    <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
-    <p class="hint" id="game-hint">Tap a score to edit.</p>
   </div>
 
   <div id="view-ended" class="view">
     <div class="view-title">Game over</div>
-    <p class="view-sub">Final totals</p>
     <div class="ended-list" id="ended-list"></div>
     <div class="ended-actions">
       <button type="button" class="btn btn-accent btn-lg" id="restart-btn">Restart</button>
       <button type="button" class="btn btn-primary btn-lg" id="end-btn">End</button>
     </div>
-    <p class="hint">Restart keeps the same players. End starts over with new names.</p>
   </div>
 </div>
 
@@ -65,7 +63,6 @@
       <button type="button" class="btn btn-ghost" id="players-modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body">
-      <p class="view-sub">Rename, reorder (drag the number), remove, or add players. Scores move with each player.</p>
       <div class="name-list" id="modal-name-list"></div>
       <button type="button" class="add-player-plus" id="modal-add-player" aria-label="Add player">+</button>
       <div class="setup-error" id="modal-error"></div>
@@ -159,7 +156,6 @@ const els = {
   boldLeaderOn: document.getElementById("bold-leader-on"),
   boldLeaderOff: document.getElementById("bold-leader-off"),
   boldLeaderRow: document.getElementById("setting-bold-leader"),
-  gameHint: document.getElementById("game-hint"),
 };
 
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
@@ -210,20 +206,6 @@ function syncPrefsUi() {
   els.boldLeaderRow.classList.toggle("is-disabled", !prefs.showRoundTotals);
   els.boldLeaderOn.disabled = !prefs.showRoundTotals;
   els.boldLeaderOff.disabled = !prefs.showRoundTotals;
-  updateGameHint();
-}
-
-function updateGameHint() {
-  if (!els.gameHint) return;
-  if (!prefs.showRoundTotals) {
-    els.gameHint.textContent = "Tap a score to edit.";
-  } else if (prefs.boldRoundLeader) {
-    els.gameHint.textContent =
-      "Tap a score to edit (running total hides while typing). Leader’s () is bold.";
-  } else {
-    els.gameHint.textContent =
-      "Tap a score to edit (running total hides while typing).";
-  }
 }
 
 function applyTheme(theme) {
@@ -548,7 +530,6 @@ function renderGame() {
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
   els.scoreGrid.dataset.players = String(players.length);
   applyColumnWidths(players.length);
-  updateGameHint();
 }
 
 function applyColumnWidths(playerCount) {
