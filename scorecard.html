@@ -127,6 +127,8 @@ import {
   cumulativeTotalsByRound,
   leaderIndices,
   lastEnteredRoundByPlayer,
+  enteredRoundRangeByPlayer,
+  showsRunningTotalAt,
   visibleLeaderIndices,
   applyPlayerEdit,
   emptyRound,
@@ -497,7 +499,10 @@ function renderGame() {
   const cumulative = cumulativeTotalsByRound(rounds, players.length);
   const totals = columnTotals(rounds, players.length);
   const overallLeaders = new Set(leaderIndices(totals));
-  const lastEntered = lastEnteredRoundByPlayer(rounds, players.length);
+  const { first: firstEntered, last: lastEntered } = enteredRoundRangeByPlayer(
+    rounds,
+    players.length
+  );
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
@@ -532,7 +537,7 @@ function renderGame() {
     tr.appendChild(label);
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
     const roundLeaders = new Set(
-      visibleLeaderIndices(roundTotals, lastEntered, ri)
+      visibleLeaderIndices(roundTotals, firstEntered, lastEntered, ri)
     );
     for (let ci = 0; ci < players.length; ci++) {
       const td = document.createElement("td");
@@ -569,7 +574,8 @@ function renderGame() {
       });
       wrap.appendChild(input);
       const showRunning =
-        prefs.showRoundTotals && (lastEntered[ci] ?? -1) >= ri;
+        prefs.showRoundTotals &&
+        showsRunningTotalAt(firstEntered[ci] ?? -1, lastEntered[ci] ?? -1, ri);
       if (showRunning) {
         setScoreOffset(wrap, row[ci] ?? "");
         const paren = document.createElement("span");
@@ -631,13 +637,16 @@ function updateDerivedScores() {
   const cumulative = cumulativeTotalsByRound(state.rounds, players.length);
   const totals = columnTotals(state.rounds, players.length);
   const overallLeaders = new Set(leaderIndices(totals));
-  const lastEntered = lastEnteredRoundByPlayer(state.rounds, players.length);
+  const { first: firstEntered, last: lastEntered } = enteredRoundRangeByPlayer(
+    state.rounds,
+    players.length
+  );
 
   els.scoreGrid.querySelectorAll("tr.score-row").forEach((tr) => {
     const ri = Number(tr.dataset.roundIndex);
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
     const roundLeaders = new Set(
-      visibleLeaderIndices(roundTotals, lastEntered, ri)
+      visibleLeaderIndices(roundTotals, firstEntered, lastEntered, ri)
     );
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
@@ -646,7 +655,8 @@ function updateDerivedScores() {
       if (!wrap || !input) return;
 
       const showRunning =
-        prefs.showRoundTotals && (lastEntered[ci] ?? -1) >= ri;
+        prefs.showRoundTotals &&
+        showsRunningTotalAt(firstEntered[ci] ?? -1, lastEntered[ci] ?? -1, ri);
       let paren = wrap.querySelector(".run-paren");
 
       if (!showRunning) {
