@@ -295,12 +295,14 @@ header {
 }
 
 .add-round-plus {
+  align-self: center;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
-  height: 36px;
-  margin: 0;
+  height: 40px;
+  margin: 4px 0 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -392,7 +394,7 @@ header {
 .score-grid tfoot tr.totals-row .round-label,
 .score-grid tfoot tr.totals-row td {
   position: sticky;
-  bottom: 52px;
+  bottom: 0;
   z-index: 2;
   background: var(--footer-bg);
   border-top: 2px solid var(--accent2);
@@ -423,19 +425,6 @@ header {
 .score-grid tfoot tr.totals-row td.is-leader .total-badge {
   border: 1.5px solid var(--accent2);
   font-weight: 800;
-}
-
-.score-grid tfoot tr.add-round-row td {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  background: var(--surface);
-  border: none;
-  border-top: none;
-  padding: 10px 0 14px;
-  font-weight: 400;
-  color: inherit;
-  text-align: center;
 }
 
 .score-cell {

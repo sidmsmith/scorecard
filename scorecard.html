@@ -42,6 +42,7 @@
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
+    <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
     <p class="hint" id="game-hint">Tap a score to edit.</p>
   </div>
 
@@ -543,21 +544,6 @@ function renderGame() {
   });
   tfoot.appendChild(footRow);
 
-  const plusRow = document.createElement("tr");
-  plusRow.className = "add-round-row";
-  const plusTd = document.createElement("td");
-  plusTd.colSpan = players.length + 1;
-  const plusBtn = document.createElement("button");
-  plusBtn.type = "button";
-  plusBtn.className = "add-round-plus";
-  plusBtn.id = "add-round-plus";
-  plusBtn.setAttribute("aria-label", "Add round");
-  plusBtn.textContent = "+";
-  plusBtn.addEventListener("click", addRound);
-  plusTd.appendChild(plusBtn);
-  plusRow.appendChild(plusTd);
-  tfoot.appendChild(plusRow);
-
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
   els.scoreGrid.dataset.players = String(players.length);
@@ -782,6 +768,7 @@ document.getElementById("confirm-btn").addEventListener("click", () => {
 });
 
 document.getElementById("add-round-btn").addEventListener("click", addRound);
+document.getElementById("add-round-plus").addEventListener("click", addRound);
 
 function addRound() {
   state.rounds.push(emptyRound(state.players.length));
