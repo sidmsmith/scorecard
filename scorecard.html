@@ -126,6 +126,8 @@ import {
   columnTotals,
   cumulativeTotalsByRound,
   leaderIndices,
+  lastEnteredRoundByPlayer,
+  visibleLeaderIndices,
   applyPlayerEdit,
   emptyRound,
   restartGame,
@@ -491,6 +493,7 @@ function renderGame() {
   const cumulative = cumulativeTotalsByRound(rounds, players.length);
   const totals = columnTotals(rounds, players.length);
   const overallLeaders = new Set(leaderIndices(totals));
+  const lastEntered = lastEnteredRoundByPlayer(rounds, players.length);
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
@@ -524,7 +527,9 @@ function renderGame() {
     label.addEventListener("click", (e) => onRoundLabelActivate(e, ri));
     tr.appendChild(label);
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
-    const roundLeaders = new Set(leaderIndices(roundTotals));
+    const roundLeaders = new Set(
+      visibleLeaderIndices(roundTotals, lastEntered, ri)
+    );
     for (let ci = 0; ci < players.length; ci++) {
       const td = document.createElement("td");
       td.className = "score-cell";
@@ -559,7 +564,9 @@ function renderGame() {
         save();
       });
       wrap.appendChild(input);
-      if (ri > 0 && prefs.showRoundTotals) {
+      const showRunning =
+        prefs.showRoundTotals && (lastEntered[ci] ?? -1) >= ri;
+      if (showRunning) {
         setScoreOffset(wrap, row[ci] ?? "");
         const paren = document.createElement("span");
         paren.className = "run-paren";
@@ -620,19 +627,35 @@ function updateDerivedScores() {
   const cumulative = cumulativeTotalsByRound(state.rounds, players.length);
   const totals = columnTotals(state.rounds, players.length);
   const overallLeaders = new Set(leaderIndices(totals));
+  const lastEntered = lastEnteredRoundByPlayer(state.rounds, players.length);
 
   els.scoreGrid.querySelectorAll("tr.score-row").forEach((tr) => {
     const ri = Number(tr.dataset.roundIndex);
-    if (ri < 1) return;
     const roundTotals = cumulative[ri] || Array(players.length).fill(0);
-    const roundLeaders = new Set(leaderIndices(roundTotals));
+    const roundLeaders = new Set(
+      visibleLeaderIndices(roundTotals, lastEntered, ri)
+    );
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
       const wrap = td.querySelector(".score-wrap");
       const input = td.querySelector("input");
-      const paren = td.querySelector(".run-paren");
-      if (!paren) return;
-      if (wrap && input) setScoreOffset(wrap, input.value);
+      if (!wrap || !input) return;
+
+      const showRunning =
+        prefs.showRoundTotals && (lastEntered[ci] ?? -1) >= ri;
+      let paren = wrap.querySelector(".run-paren");
+
+      if (!showRunning) {
+        if (paren) paren.remove();
+        return;
+      }
+
+      if (!paren) {
+        paren = document.createElement("span");
+        paren.className = "run-paren";
+        wrap.appendChild(paren);
+      }
+      setScoreOffset(wrap, input.value);
       paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
       paren.classList.toggle(
         "is-leader",
