@@ -35,12 +35,13 @@
   <div id="view-game" class="view">
     <div class="game-toolbar">
       <button type="button" class="btn btn-accent" id="add-round-btn">Add round</button>
+      <button type="button" class="btn" id="change-players-btn">Change players</button>
       <button type="button" class="btn btn-primary" id="end-game-btn">End game</button>
     </div>
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
-    <p class="hint">Tap any score to edit. Blank = 0. Totals update live.</p>
+    <p class="hint">Tap any score to edit. Thin rows are running totals. Leader highlighted.</p>
   </div>
 
   <div id="view-ended" class="view">
@@ -55,12 +56,38 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="players-modal" role="dialog" aria-modal="true" aria-labelledby="players-modal-title" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="players-modal-title">Change players</h2>
+      <button type="button" class="btn btn-ghost" id="players-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="view-sub">Rename, remove, or add players (1–6). Scores for kept players stay; new players start blank.</p>
+      <div class="setup-count">
+        <button type="button" class="btn count-btn" id="modal-player-dec" aria-label="Fewer players">−</button>
+        <div class="count-label"><span id="modal-player-count">2</span> players</div>
+        <button type="button" class="btn count-btn" id="modal-player-inc" aria-label="More players">+</button>
+      </div>
+      <div class="name-list" id="modal-name-list"></div>
+      <div class="setup-error" id="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="players-modal-save">Save</button>
+      <button type="button" class="btn btn-lg" id="players-modal-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import {
   MIN_PLAYERS,
   MAX_PLAYERS,
   normalizePlayerNames,
   columnTotals,
+  cumulativeTotalsByRound,
+  leaderIndices,
+  applyPlayerEdit,
   emptyRound,
   restartGame,
   endGameFresh,
@@ -77,6 +104,10 @@ const els = {
   setupError: document.getElementById("setup-error"),
   scoreGrid: document.getElementById("score-grid"),
   endedList: document.getElementById("ended-list"),
+  modal: document.getElementById("players-modal"),
+  modalNameList: document.getElementById("modal-name-list"),
+  modalPlayerCount: document.getElementById("modal-player-count"),
+  modalError: document.getElementById("modal-error"),
 };
 
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
@@ -85,6 +116,9 @@ let state = {
   players: ["", ""],
   rounds: [],
 };
+
+/** @type {{ name: string, fromIndex: number | null }[]} */
+let draftPlayers = [];
 
 function save() {
   try {
@@ -126,6 +160,11 @@ function showView(name) {
   save();
 }
 
+function formatTotal(n) {
+  if (Number.isInteger(n)) return String(n);
+  return String(Math.round(n * 1000) / 1000);
+}
+
 function renderSetup() {
   const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, state.players.length || 2));
   while (state.players.length < n) state.players.push("");
@@ -158,7 +197,9 @@ function renderSetup() {
 function renderGame() {
   const players = state.players;
   const rounds = state.rounds;
+  const cumulative = cumulativeTotalsByRound(rounds, players.length);
   const totals = columnTotals(rounds, players.length);
+  const overallLeaders = new Set(leaderIndices(totals));
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
@@ -177,6 +218,7 @@ function renderGame() {
   const tbody = document.createElement("tbody");
   rounds.forEach((row, ri) => {
     const tr = document.createElement("tr");
+    tr.className = "score-row";
     const label = document.createElement("td");
     label.className = "round-label";
     label.textContent = String(ri + 1);
@@ -194,19 +236,37 @@ function renderGame() {
       input.addEventListener("input", () => {
         if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
         state.rounds[ri][ci] = input.value;
-        updateTotalsOnly();
+        updateDerivedScores();
         save();
       });
       input.addEventListener("change", () => {
         if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
         state.rounds[ri][ci] = input.value;
-        updateTotalsOnly();
+        updateDerivedScores();
         save();
       });
       td.appendChild(input);
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
+
+    const run = document.createElement("tr");
+    run.className = "running-row";
+    run.dataset.roundIndex = String(ri);
+    const runLabel = document.createElement("td");
+    runLabel.className = "round-label";
+    runLabel.textContent = "Σ";
+    run.appendChild(runLabel);
+    const roundTotals = cumulative[ri] || Array(players.length).fill(0);
+    const roundLeaders = new Set(leaderIndices(roundTotals));
+    roundTotals.forEach((t, ci) => {
+      const td = document.createElement("td");
+      td.dataset.playerIndex = String(ci);
+      td.textContent = formatTotal(t);
+      if (roundLeaders.has(ci)) td.classList.add("is-leader");
+      run.appendChild(td);
+    });
+    tbody.appendChild(run);
   });
 
   const tfoot = document.createElement("tfoot");
@@ -219,6 +279,7 @@ function renderGame() {
     const td = document.createElement("td");
     td.dataset.totalIndex = String(i);
     td.textContent = formatTotal(t);
+    if (overallLeaders.has(i)) td.classList.add("is-leader");
     footRow.appendChild(td);
   });
   tfoot.appendChild(footRow);
@@ -226,29 +287,42 @@ function renderGame() {
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
 }
 
-function formatTotal(n) {
-  if (Number.isInteger(n)) return String(n);
-  return String(Math.round(n * 1000) / 1000);
-}
+function updateDerivedScores() {
+  const players = state.players;
+  const cumulative = cumulativeTotalsByRound(state.rounds, players.length);
+  const totals = columnTotals(state.rounds, players.length);
+  const overallLeaders = new Set(leaderIndices(totals));
 
-function updateTotalsOnly() {
-  const totals = columnTotals(state.rounds, state.players.length);
+  els.scoreGrid.querySelectorAll("tr.running-row").forEach((tr) => {
+    const ri = Number(tr.dataset.roundIndex);
+    const roundTotals = cumulative[ri] || Array(players.length).fill(0);
+    const roundLeaders = new Set(leaderIndices(roundTotals));
+    tr.querySelectorAll("td[data-player-index]").forEach((td) => {
+      const ci = Number(td.dataset.playerIndex);
+      td.textContent = formatTotal(roundTotals[ci] ?? 0);
+      td.classList.toggle("is-leader", roundLeaders.has(ci));
+    });
+  });
+
   els.scoreGrid.querySelectorAll("tfoot td[data-total-index]").forEach((td) => {
     const i = Number(td.dataset.totalIndex);
     td.textContent = formatTotal(totals[i] ?? 0);
+    td.classList.toggle("is-leader", overallLeaders.has(i));
   });
 }
 
 function renderEnded() {
   const totals = columnTotals(state.rounds, state.players.length);
+  const leaders = new Set(leaderIndices(totals));
   const ranked = state.players
-    .map((name, i) => ({ name, total: totals[i] ?? 0 }))
+    .map((name, i) => ({ name, total: totals[i] ?? 0, i }))
     .sort((a, b) => b.total - a.total);
 
   els.endedList.innerHTML = "";
-  ranked.forEach(({ name, total }) => {
+  ranked.forEach(({ name, total, i }) => {
     const row = document.createElement("div");
     row.className = "ended-row";
+    if (leaders.has(i)) row.classList.add("is-leader");
     const n = document.createElement("span");
     n.className = "name";
     n.textContent = name;
@@ -271,6 +345,58 @@ function render() {
     showView("ended");
     renderEnded();
   }
+}
+
+function openPlayersModal() {
+  draftPlayers = state.players.map((name, i) => ({
+    name,
+    fromIndex: i,
+  }));
+  els.modalError.textContent = "";
+  renderModalPlayers();
+  els.modal.hidden = false;
+  els.modal.classList.add("open");
+}
+
+function closePlayersModal() {
+  els.modal.classList.remove("open");
+  els.modal.hidden = true;
+}
+
+function renderModalPlayers() {
+  els.modalPlayerCount.textContent = String(draftPlayers.length);
+  els.modalNameList.innerHTML = "";
+  draftPlayers.forEach((player, i) => {
+    const row = document.createElement("div");
+    row.className = "name-row";
+    const label = document.createElement("label");
+    label.textContent = String(i + 1);
+    label.htmlFor = `modal-player-name-${i}`;
+    const input = document.createElement("input");
+    input.id = `modal-player-name-${i}`;
+    input.type = "text";
+    input.autocomplete = "off";
+    input.placeholder = `Player ${i + 1}`;
+    input.value = player.name;
+    input.addEventListener("input", () => {
+      draftPlayers[i].name = input.value;
+      els.modalError.textContent = "";
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn remove-btn";
+    remove.setAttribute("aria-label", `Remove player ${i + 1}`);
+    remove.textContent = "×";
+    remove.disabled = draftPlayers.length <= MIN_PLAYERS;
+    remove.addEventListener("click", () => {
+      if (draftPlayers.length <= MIN_PLAYERS) return;
+      draftPlayers.splice(i, 1);
+      els.modalError.textContent = "";
+      renderModalPlayers();
+    });
+    row.append(label, input, remove);
+    els.modalNameList.appendChild(row);
+  });
 }
 
 document.getElementById("player-dec").addEventListener("click", () => {
@@ -309,6 +435,51 @@ document.getElementById("add-round-btn").addEventListener("click", () => {
   save();
   const wrap = document.querySelector(".grid-wrap");
   if (wrap) wrap.scrollTop = wrap.scrollHeight;
+});
+
+document.getElementById("change-players-btn").addEventListener("click", () => {
+  openPlayersModal();
+});
+
+document.getElementById("players-modal-close").addEventListener("click", closePlayersModal);
+document.getElementById("players-modal-cancel").addEventListener("click", closePlayersModal);
+els.modal.addEventListener("click", (e) => {
+  if (e.target === els.modal) closePlayersModal();
+});
+
+document.getElementById("modal-player-dec").addEventListener("click", () => {
+  if (draftPlayers.length <= MIN_PLAYERS) return;
+  draftPlayers.pop();
+  els.modalError.textContent = "";
+  renderModalPlayers();
+});
+
+document.getElementById("modal-player-inc").addEventListener("click", () => {
+  if (draftPlayers.length >= MAX_PLAYERS) return;
+  draftPlayers.push({ name: "", fromIndex: null });
+  els.modalError.textContent = "";
+  renderModalPlayers();
+});
+
+document.getElementById("players-modal-save").addEventListener("click", () => {
+  const names = draftPlayers.map((p) => p.name);
+  const result = normalizePlayerNames(names);
+  if (!result.ok) {
+    els.modalError.textContent = result.error;
+    return;
+  }
+  const next = draftPlayers.map((p, i) => ({
+    name: result.names[i],
+    fromIndex: p.fromIndex,
+  }));
+  const edited = applyPlayerEdit(state.rounds, next);
+  state.players = edited.players;
+  state.rounds = edited.rounds.length
+    ? edited.rounds
+    : [emptyRound(edited.players.length)];
+  closePlayersModal();
+  renderGame();
+  save();
 });
 
 document.getElementById("end-game-btn").addEventListener("click", () => {

@@ -24,6 +24,8 @@ See [DEPLOY.md](DEPLOY.md). Vercel framework preset: **Other**. No environment v
 
 1. Choose 1–6 players, enter names, **Confirm**.
 2. Enter scores in any cell / any order. Tap a cell to edit; totals recalculate immediately.
-3. **Add round** for another row.
-4. **End game** → final totals.
-5. **Restart** clears scores but keeps the same players. **End** returns to name entry.
+3. Thin rows under each round show **running totals** through that round (leader subtly highlighted).
+4. Bottom **Σ** row shows overall totals (current leader highlighted).
+5. **Add round** for another row. **Change players** to rename, remove, or add players mid-game.
+6. **End game** → final totals.
+7. **Restart** clears scores but keeps the same players. **End** returns to name entry.
