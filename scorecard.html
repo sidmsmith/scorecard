@@ -22,15 +22,10 @@
 
   <div id="view-setup" class="view active">
     <div class="view-title">New game</div>
-    <p class="view-sub">Enter 1–6 players, then confirm to start scoring.</p>
-
-    <div class="setup-count">
-      <button type="button" class="btn count-btn" id="player-dec" aria-label="Fewer players">−</button>
-      <div class="count-label"><span id="player-count">2</span> players</div>
-      <button type="button" class="btn count-btn" id="player-inc" aria-label="More players">+</button>
-    </div>
+    <p class="view-sub">Add 1–6 players, drag numbers to reorder, then confirm.</p>
 
     <div class="name-list" id="name-list"></div>
+    <button type="button" class="add-player-plus" id="setup-add-player" aria-label="Add player">+</button>
     <div class="setup-error" id="setup-error"></div>
 
     <div class="setup-actions">
@@ -69,13 +64,9 @@
       <button type="button" class="btn btn-ghost" id="players-modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body">
-      <p class="view-sub">Rename, remove, reorder (drag ≡), or add players (1–6). Scores move with each player.</p>
-      <div class="setup-count">
-        <button type="button" class="btn count-btn" id="modal-player-dec" aria-label="Fewer players">−</button>
-        <div class="count-label"><span id="modal-player-count">2</span> players</div>
-        <button type="button" class="btn count-btn" id="modal-player-inc" aria-label="More players">+</button>
-      </div>
+      <p class="view-sub">Rename, reorder (drag the number), remove, or add players. Scores move with each player.</p>
       <div class="name-list" id="modal-name-list"></div>
+      <button type="button" class="add-player-plus" id="modal-add-player" aria-label="Add player">+</button>
       <div class="setup-error" id="modal-error"></div>
     </div>
     <div class="modal-actions">
@@ -152,13 +143,11 @@ const els = {
   game: document.getElementById("view-game"),
   ended: document.getElementById("view-ended"),
   nameList: document.getElementById("name-list"),
-  playerCount: document.getElementById("player-count"),
   setupError: document.getElementById("setup-error"),
   scoreGrid: document.getElementById("score-grid"),
   endedList: document.getElementById("ended-list"),
   modal: document.getElementById("players-modal"),
   modalNameList: document.getElementById("modal-name-list"),
-  modalPlayerCount: document.getElementById("modal-player-count"),
   modalError: document.getElementById("modal-error"),
   settingsModal: document.getElementById("settings-modal"),
   themeLightBtn: document.getElementById("theme-light-btn"),
@@ -175,7 +164,7 @@ const els = {
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
 let state = {
   view: "setup",
-  players: ["", ""],
+  players: ["Player 1", "Player 2"],
   rounds: [],
 };
 
@@ -331,33 +320,126 @@ function setScoreOffset(wrap, value) {
   wrap.style.setProperty("--score-offset", `${offsetEm}em`);
 }
 
-function renderSetup() {
-  const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, state.players.length || 2));
-  while (state.players.length < n) state.players.push("");
-  while (state.players.length > n) state.players.pop();
+function defaultPlayerName(index) {
+  return `Player ${index + 1}`;
+}
 
-  els.playerCount.textContent = String(state.players.length);
-  els.nameList.innerHTML = "";
-  state.players.forEach((name, i) => {
+function trashIconSvg() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute(
+    "d",
+    "M4 7h16M9 7V5h6v2M10 11v6M14 11v6M6 7l1 12h10l1-12"
+  );
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "2");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(path);
+  return svg;
+}
+
+/**
+ * @param {object} opts
+ * @param {HTMLElement} opts.listEl
+ * @param {string[]} opts.names
+ * @param {string} opts.idPrefix
+ * @param {(index: number, value: string) => void} opts.onNameInput
+ * @param {(index: number) => void} opts.onRemove
+ * @param {(from: number, to: number) => void} opts.onReorder
+ * @param {HTMLElement | null} [opts.errorEl]
+ */
+function renderPlayerNameRows({
+  listEl,
+  names,
+  idPrefix,
+  onNameInput,
+  onRemove,
+  onReorder,
+  errorEl,
+}) {
+  listEl.innerHTML = "";
+  names.forEach((name, i) => {
+    const displayName = String(name ?? "").trim() || defaultPlayerName(i);
     const row = document.createElement("div");
     row.className = "name-row";
-    const label = document.createElement("label");
-    label.textContent = String(i + 1);
-    label.htmlFor = `player-name-${i}`;
+    row.dataset.draftIndex = String(i);
+
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "drag-handle";
+    handle.setAttribute("aria-label", `Drag to reorder player ${i + 1}`);
+    handle.textContent = String(i + 1);
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      startPlayerDrag(e, i, row, listEl, onReorder);
+    });
+
     const input = document.createElement("input");
-    input.id = `player-name-${i}`;
+    input.id = `${idPrefix}-${i}`;
     input.type = "text";
     input.autocomplete = "off";
-    input.placeholder = `Player ${i + 1}`;
-    input.value = name;
+    input.value = displayName;
     input.addEventListener("input", () => {
-      state.players[i] = input.value;
-      els.setupError.textContent = "";
-      save();
+      onNameInput(i, input.value);
+      if (errorEl) errorEl.textContent = "";
     });
-    row.append(label, input);
-    els.nameList.appendChild(row);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn remove-btn";
+    remove.setAttribute("aria-label", `Remove player ${i + 1}`);
+    remove.appendChild(trashIconSvg());
+    remove.disabled = names.length <= MIN_PLAYERS;
+    remove.addEventListener("click", () => {
+      if (names.length <= MIN_PLAYERS) return;
+      onRemove(i);
+    });
+
+    row.append(handle, input, remove);
+    listEl.appendChild(row);
   });
+}
+
+function renderSetup() {
+  // Fill blanks with default names so Confirm can succeed without edits.
+  state.players = state.players.map((name, i) =>
+    String(name ?? "").trim() || defaultPlayerName(i)
+  );
+  while (state.players.length < MIN_PLAYERS) {
+    state.players.push(defaultPlayerName(state.players.length));
+  }
+  if (state.players.length > MAX_PLAYERS) {
+    state.players = state.players.slice(0, MAX_PLAYERS);
+  }
+
+  renderPlayerNameRows({
+    listEl: els.nameList,
+    names: state.players,
+    idPrefix: "player-name",
+    errorEl: els.setupError,
+    onNameInput: (i, value) => {
+      state.players[i] = value;
+      save();
+    },
+    onRemove: (i) => {
+      state.players.splice(i, 1);
+      els.setupError.textContent = "";
+      renderSetup();
+      save();
+    },
+    onReorder: (from, to) => {
+      const [item] = state.players.splice(from, 1);
+      state.players.splice(to, 0, item);
+      renderSetup();
+      save();
+    },
+  });
+  const setupAdd = document.getElementById("setup-add-player");
+  if (setupAdd) setupAdd.disabled = state.players.length >= MAX_PLAYERS;
 }
 
 function renderGame() {
@@ -584,69 +666,53 @@ function closePlayersModal() {
 }
 
 function renderModalPlayers() {
-  els.modalPlayerCount.textContent = String(draftPlayers.length);
-  els.modalNameList.innerHTML = "";
-  draftPlayers.forEach((player, i) => {
-    const row = document.createElement("div");
-    row.className = "name-row";
-    row.dataset.draftIndex = String(i);
+  // Keep blank new slots filled with defaults for display/save.
+  draftPlayers = draftPlayers.map((p, i) => ({
+    ...p,
+    name: String(p.name ?? "").trim() || defaultPlayerName(i),
+  }));
 
-    const handle = document.createElement("button");
-    handle.type = "button";
-    handle.className = "drag-handle";
-    handle.setAttribute("aria-label", `Drag to reorder player ${i + 1}`);
-    handle.textContent = "≡";
-    handle.addEventListener("pointerdown", (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-      startPlayerDrag(e, i, row);
-    });
-
-    const label = document.createElement("label");
-    label.textContent = String(i + 1);
-    label.htmlFor = `modal-player-name-${i}`;
-    const input = document.createElement("input");
-    input.id = `modal-player-name-${i}`;
-    input.type = "text";
-    input.autocomplete = "off";
-    input.placeholder = `Player ${i + 1}`;
-    input.value = player.name;
-    input.addEventListener("input", () => {
-      draftPlayers[i].name = input.value;
-      els.modalError.textContent = "";
-    });
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "btn remove-btn";
-    remove.setAttribute("aria-label", `Remove player ${i + 1}`);
-    remove.textContent = "×";
-    remove.disabled = draftPlayers.length <= MIN_PLAYERS;
-    remove.addEventListener("click", () => {
-      if (draftPlayers.length <= MIN_PLAYERS) return;
+  renderPlayerNameRows({
+    listEl: els.modalNameList,
+    names: draftPlayers.map((p) => p.name),
+    idPrefix: "modal-player-name",
+    errorEl: els.modalError,
+    onNameInput: (i, value) => {
+      draftPlayers[i].name = value;
+    },
+    onRemove: (i) => {
       draftPlayers.splice(i, 1);
       els.modalError.textContent = "";
       renderModalPlayers();
-    });
-    row.append(handle, label, input, remove);
-    els.modalNameList.appendChild(row);
+    },
+    onReorder: (from, to) => {
+      const [item] = draftPlayers.splice(from, 1);
+      draftPlayers.splice(to, 0, item);
+      renderModalPlayers();
+    },
   });
+  const modalAdd = document.getElementById("modal-add-player");
+  if (modalAdd) modalAdd.disabled = draftPlayers.length >= MAX_PLAYERS;
 }
 
-/** @type {{ from: number, row: HTMLElement, hover: number, pointerId: number } | null} */
+/** @type {{ from: number, row: HTMLElement, hover: number, pointerId: number, listEl: HTMLElement, onReorder: (from: number, to: number) => void } | null} */
 let playerDrag = null;
 
-function clearDragOver() {
-  els.modalNameList.querySelectorAll(".name-row").forEach((r) => {
+function clearDragOver(listEl) {
+  listEl.querySelectorAll(".name-row").forEach((r) => {
     r.classList.remove("drag-over");
   });
 }
 
-function startPlayerDrag(e, fromIndex, row) {
+function startPlayerDrag(e, fromIndex, row, listEl, onReorder) {
   e.preventDefault();
   playerDrag = {
     from: fromIndex,
     row,
     hover: fromIndex,
     pointerId: e.pointerId,
+    listEl,
+    onReorder,
   };
   row.classList.add("is-dragging");
   try {
@@ -661,7 +727,7 @@ function startPlayerDrag(e, fromIndex, row) {
 
 function onPlayerDragMove(e) {
   if (!playerDrag) return;
-  const rows = [...els.modalNameList.querySelectorAll(".name-row")];
+  const rows = [...playerDrag.listEl.querySelectorAll(".name-row")];
   let hover = playerDrag.from;
   for (let i = 0; i < rows.length; i++) {
     const rect = rows[i].getBoundingClientRect();
@@ -678,7 +744,7 @@ function onPlayerDragMove(e) {
 
 function onPlayerDragEnd(e) {
   if (!playerDrag) return;
-  const { from, hover, row, pointerId } = playerDrag;
+  const { from, hover, row, pointerId, listEl, onReorder } = playerDrag;
   row.removeEventListener("pointermove", onPlayerDragMove);
   row.removeEventListener("pointerup", onPlayerDragEnd);
   row.removeEventListener("pointercancel", onPlayerDragEnd);
@@ -688,26 +754,14 @@ function onPlayerDragEnd(e) {
     /* ignore */
   }
   row.classList.remove("is-dragging");
-  clearDragOver();
+  clearDragOver(listEl);
   playerDrag = null;
-  if (from !== hover) {
-    const [item] = draftPlayers.splice(from, 1);
-    draftPlayers.splice(hover, 0, item);
-    renderModalPlayers();
-  }
+  if (from !== hover) onReorder(from, hover);
 }
 
-document.getElementById("player-dec").addEventListener("click", () => {
-  if (state.players.length <= MIN_PLAYERS) return;
-  state.players.pop();
-  els.setupError.textContent = "";
-  renderSetup();
-  save();
-});
-
-document.getElementById("player-inc").addEventListener("click", () => {
+document.getElementById("setup-add-player").addEventListener("click", () => {
   if (state.players.length >= MAX_PLAYERS) return;
-  state.players.push("");
+  state.players.push(defaultPlayerName(state.players.length));
   els.setupError.textContent = "";
   renderSetup();
   save();
@@ -783,16 +837,12 @@ els.modal.addEventListener("click", (e) => {
   if (e.target === els.modal) closePlayersModal();
 });
 
-document.getElementById("modal-player-dec").addEventListener("click", () => {
-  if (draftPlayers.length <= MIN_PLAYERS) return;
-  draftPlayers.pop();
-  els.modalError.textContent = "";
-  renderModalPlayers();
-});
-
-document.getElementById("modal-player-inc").addEventListener("click", () => {
+document.getElementById("modal-add-player").addEventListener("click", () => {
   if (draftPlayers.length >= MAX_PLAYERS) return;
-  draftPlayers.push({ name: "", fromIndex: null });
+  draftPlayers.push({
+    name: defaultPlayerName(draftPlayers.length),
+    fromIndex: null,
+  });
   els.modalError.textContent = "";
   renderModalPlayers();
 });
