@@ -325,11 +325,11 @@ header {
   table-layout: fixed;
 }
 
-/* 5–6 players: allow horizontal scroll with a usable column min-width */
+/* 5–6 players: keep column width as if there were 4, scroll horizontally */
 .score-grid.is-wide {
   width: max-content;
-  min-width: 100%;
-  table-layout: auto;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .score-grid th,
@@ -359,8 +359,11 @@ header {
 }
 
 .score-grid.is-wide thead th:not(.round-label),
-.score-grid.is-wide .score-cell {
-  min-width: var(--cell-min-wide);
+.score-grid.is-wide tbody td:not(.round-label),
+.score-grid.is-wide tfoot tr.totals-row td:not(.round-label) {
+  width: var(--player-col-width, 72px);
+  min-width: var(--player-col-width, 72px);
+  max-width: var(--player-col-width, 72px);
 }
 
 .score-grid .round-label {
