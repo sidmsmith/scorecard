@@ -47,8 +47,7 @@
     <div class="grid-wrap">
       <table class="score-grid" id="score-grid"></table>
     </div>
-    <button type="button" class="add-round-plus" id="add-round-plus" aria-label="Add round">+</button>
-    <p class="hint">Tap a score to edit (running total hides while typing). Leader’s () is bold.</p>
+    <p class="hint" id="game-hint">Tap a score to edit.</p>
   </div>
 
   <div id="view-ended" class="view">
@@ -103,6 +102,26 @@
           <button type="button" id="theme-dark-btn" data-theme-choice="dark">Dark</button>
         </div>
       </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Round totals</div>
+          <div class="setting-help">Show running total next to each score from round 2</div>
+        </div>
+        <div class="theme-toggle" role="group" aria-label="Show round totals">
+          <button type="button" id="round-totals-on">Show</button>
+          <button type="button" id="round-totals-off">Hide</button>
+        </div>
+      </div>
+      <div class="setting-row" id="setting-bold-leader">
+        <div>
+          <div class="setting-label">Bold round leader</div>
+          <div class="setting-help">Bold the () for whoever leads after that round</div>
+        </div>
+        <div class="theme-toggle" role="group" aria-label="Bold round leader">
+          <button type="button" id="bold-leader-on">On</button>
+          <button type="button" id="bold-leader-off">Off</button>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-primary btn-lg" id="settings-modal-done">Done</button>
@@ -126,6 +145,7 @@ import {
 
 const STORAGE_KEY = "scorecard-v1";
 const THEME_KEY = "scorecard-theme";
+const PREFS_KEY = "scorecard-prefs";
 
 const els = {
   setup: document.getElementById("view-setup"),
@@ -144,6 +164,12 @@ const els = {
   themeLightBtn: document.getElementById("theme-light-btn"),
   themeDarkBtn: document.getElementById("theme-dark-btn"),
   themeMeta: document.querySelector('meta[name="theme-color"]'),
+  roundTotalsOn: document.getElementById("round-totals-on"),
+  roundTotalsOff: document.getElementById("round-totals-off"),
+  boldLeaderOn: document.getElementById("bold-leader-on"),
+  boldLeaderOff: document.getElementById("bold-leader-off"),
+  boldLeaderRow: document.getElementById("setting-bold-leader"),
+  gameHint: document.getElementById("game-hint"),
 };
 
 /** @type {{ view: string, players: string[], rounds: string[][] }} */
@@ -153,8 +179,62 @@ let state = {
   rounds: [],
 };
 
+/** @type {{ showRoundTotals: boolean, boldRoundLeader: boolean }} */
+let prefs = {
+  showRoundTotals: true,
+  boldRoundLeader: true,
+};
+
 /** @type {{ name: string, fromIndex: number | null }[]} */
 let draftPlayers = [];
+
+function savePrefs() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.showRoundTotals === "boolean") {
+      prefs.showRoundTotals = parsed.showRoundTotals;
+    }
+    if (typeof parsed?.boldRoundLeader === "boolean") {
+      prefs.boldRoundLeader = parsed.boldRoundLeader;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function syncPrefsUi() {
+  els.roundTotalsOn.classList.toggle("active", prefs.showRoundTotals);
+  els.roundTotalsOff.classList.toggle("active", !prefs.showRoundTotals);
+  els.boldLeaderOn.classList.toggle("active", prefs.boldRoundLeader);
+  els.boldLeaderOff.classList.toggle("active", !prefs.boldRoundLeader);
+  els.boldLeaderRow.classList.toggle("is-disabled", !prefs.showRoundTotals);
+  els.boldLeaderOn.disabled = !prefs.showRoundTotals;
+  els.boldLeaderOff.disabled = !prefs.showRoundTotals;
+  updateGameHint();
+}
+
+function updateGameHint() {
+  if (!els.gameHint) return;
+  if (!prefs.showRoundTotals) {
+    els.gameHint.textContent = "Tap a score to edit.";
+  } else if (prefs.boldRoundLeader) {
+    els.gameHint.textContent =
+      "Tap a score to edit (running total hides while typing). Leader’s () is bold.";
+  } else {
+    els.gameHint.textContent =
+      "Tap a score to edit (running total hides while typing).";
+  }
+}
 
 function applyTheme(theme) {
   const next = theme === "light" ? "light" : "dark";
@@ -186,6 +266,7 @@ function loadTheme() {
 }
 
 function openSettingsModal() {
+  syncPrefsUi();
   els.settingsModal.hidden = false;
   els.settingsModal.classList.add("open");
 }
@@ -345,12 +426,14 @@ function renderGame() {
         save();
       });
       wrap.appendChild(input);
-      if (ri > 0) {
+      if (ri > 0 && prefs.showRoundTotals) {
         setScoreOffset(wrap, row[ci] ?? "");
         const paren = document.createElement("span");
         paren.className = "run-paren";
         paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
-        if (roundLeaders.has(ci)) paren.classList.add("is-leader");
+        if (prefs.boldRoundLeader && roundLeaders.has(ci)) {
+          paren.classList.add("is-leader");
+        }
         wrap.appendChild(paren);
       }
       td.appendChild(wrap);
@@ -361,6 +444,7 @@ function renderGame() {
 
   const tfoot = document.createElement("tfoot");
   const footRow = document.createElement("tr");
+  footRow.className = "totals-row";
   const totalLabel = document.createElement("td");
   totalLabel.className = "round-label";
   totalLabel.textContent = "Σ";
@@ -377,9 +461,25 @@ function renderGame() {
   });
   tfoot.appendChild(footRow);
 
+  const plusRow = document.createElement("tr");
+  plusRow.className = "add-round-row";
+  const plusTd = document.createElement("td");
+  plusTd.colSpan = players.length + 1;
+  const plusBtn = document.createElement("button");
+  plusBtn.type = "button";
+  plusBtn.className = "add-round-plus";
+  plusBtn.id = "add-round-plus";
+  plusBtn.setAttribute("aria-label", "Add round");
+  plusBtn.textContent = "+";
+  plusBtn.addEventListener("click", addRound);
+  plusTd.appendChild(plusBtn);
+  plusRow.appendChild(plusTd);
+  tfoot.appendChild(plusRow);
+
   els.scoreGrid.replaceChildren(thead, tbody, tfoot);
   els.scoreGrid.classList.toggle("is-wide", players.length > 4);
   els.scoreGrid.dataset.players = String(players.length);
+  updateGameHint();
 }
 
 function updateDerivedScores() {
@@ -401,7 +501,10 @@ function updateDerivedScores() {
       if (!paren) return;
       if (wrap && input) setScoreOffset(wrap, input.value);
       paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
-      paren.classList.toggle("is-leader", roundLeaders.has(ci));
+      paren.classList.toggle(
+        "is-leader",
+        prefs.boldRoundLeader && roundLeaders.has(ci)
+      );
     });
   });
 
@@ -533,7 +636,6 @@ document.getElementById("confirm-btn").addEventListener("click", () => {
 });
 
 document.getElementById("add-round-btn").addEventListener("click", addRound);
-document.getElementById("add-round-plus").addEventListener("click", addRound);
 
 function addRound() {
   state.rounds.push(emptyRound(state.players.length));
@@ -555,6 +657,33 @@ els.settingsModal.addEventListener("click", (e) => {
 });
 els.themeLightBtn.addEventListener("click", () => applyTheme("light"));
 els.themeDarkBtn.addEventListener("click", () => applyTheme("dark"));
+
+els.roundTotalsOn.addEventListener("click", () => {
+  prefs.showRoundTotals = true;
+  savePrefs();
+  syncPrefsUi();
+  if (state.view === "game") renderGame();
+});
+els.roundTotalsOff.addEventListener("click", () => {
+  prefs.showRoundTotals = false;
+  savePrefs();
+  syncPrefsUi();
+  if (state.view === "game") renderGame();
+});
+els.boldLeaderOn.addEventListener("click", () => {
+  if (!prefs.showRoundTotals) return;
+  prefs.boldRoundLeader = true;
+  savePrefs();
+  syncPrefsUi();
+  if (state.view === "game") renderGame();
+});
+els.boldLeaderOff.addEventListener("click", () => {
+  if (!prefs.showRoundTotals) return;
+  prefs.boldRoundLeader = false;
+  savePrefs();
+  syncPrefsUi();
+  if (state.view === "game") renderGame();
+});
 
 document.getElementById("players-modal-close").addEventListener("click", closePlayersModal);
 document.getElementById("players-modal-cancel").addEventListener("click", closePlayersModal);
@@ -614,7 +743,9 @@ document.getElementById("end-btn").addEventListener("click", () => {
   renderSetup();
 });
 
+loadPrefs();
 loadTheme();
+syncPrefsUi();
 load();
 if (state.view === "game" && (!state.rounds.length || !state.players.length)) {
   Object.assign(state, endGameFresh());

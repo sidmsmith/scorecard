@@ -291,10 +291,12 @@ header {
 }
 
 .add-round-plus {
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
-  height: 40px;
-  margin: 2px 0 0;
+  height: 36px;
+  margin: 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -380,10 +382,10 @@ header {
   background: var(--surface2);
 }
 
-.score-grid tfoot .round-label,
-.score-grid tfoot td {
+.score-grid tfoot tr.totals-row .round-label,
+.score-grid tfoot tr.totals-row td {
   position: sticky;
-  bottom: 0;
+  bottom: 36px;
   z-index: 2;
   background: var(--footer-bg);
   border-top: 2px solid var(--accent2);
@@ -393,12 +395,12 @@ header {
   color: var(--accent2);
 }
 
-.score-grid tfoot .round-label {
+.score-grid tfoot tr.totals-row .round-label {
   left: 0;
   z-index: 3;
 }
 
-.score-grid tfoot td.is-leader {
+.score-grid tfoot tr.totals-row td.is-leader {
   color: var(--accent2);
   background: var(--footer-bg);
   box-shadow: none;
@@ -411,9 +413,22 @@ header {
   line-height: 1.2;
 }
 
-.score-grid tfoot td.is-leader .total-badge {
+.score-grid tfoot tr.totals-row td.is-leader .total-badge {
   border: 1.5px solid var(--accent2);
   font-weight: 800;
+}
+
+.score-grid tfoot tr.add-round-row td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--surface);
+  border: none;
+  border-top: none;
+  padding: 0;
+  font-weight: 400;
+  color: inherit;
+  text-align: center;
 }
 
 .score-cell {
@@ -535,6 +550,11 @@ header {
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 14px 16px;
+}
+
+.setting-row.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .setting-row .setting-label {
