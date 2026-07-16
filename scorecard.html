@@ -36,7 +36,7 @@
     <div class="game-scroll" id="game-scroll">
       <div class="game-toolbar" id="game-toolbar">
         <button type="button" class="btn btn-accent" id="add-round-btn">Add round</button>
-        <button type="button" class="btn" id="change-players-btn">Change players</button>
+        <button type="button" class="btn" id="change-players-btn">Update players</button>
         <button type="button" class="btn btn-primary" id="end-game-btn">End game</button>
       </div>
       <table class="score-grid" id="score-grid"></table>
@@ -59,7 +59,7 @@
 <div class="modal-backdrop" id="players-modal" role="dialog" aria-modal="true" aria-labelledby="players-modal-title" hidden>
   <div class="modal">
     <div class="modal-header">
-      <h2 id="players-modal-title">Change players</h2>
+      <h2 id="players-modal-title">Update players</h2>
       <button type="button" class="btn btn-ghost" id="players-modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body">
@@ -208,7 +208,7 @@ function removeRoundAt(ri) {
   if (!state.rounds.length) {
     state.rounds = [emptyRound(state.players.length)];
   }
-  rowDeleteMode = false;
+  // Stay in delete mode so multiple rounds can be removed.
   lastRoundTap = { ri: -1, t: 0 };
   renderGame();
   save();
