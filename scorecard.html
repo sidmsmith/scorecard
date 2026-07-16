@@ -239,6 +239,14 @@ function formatTotal(n) {
   return String(Math.round(n * 1000) / 1000);
 }
 
+/** Offset so (total) sits just right of the centered score digits. */
+function setScoreOffset(wrap, value) {
+  const len = String(value ?? "").trim().length;
+  // Half the score width in em (approx for digit font) + small gap
+  const offsetEm = len === 0 ? 0.2 : len * 0.32 + 0.2;
+  wrap.style.setProperty("--score-offset", `${offsetEm}em`);
+}
+
 function renderSetup() {
   const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, state.players.length || 2));
   while (state.players.length < n) state.players.push("");
@@ -322,28 +330,24 @@ function renderGame() {
       input.addEventListener("input", () => {
         if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
         state.rounds[ri][ci] = input.value;
+        setScoreOffset(wrap, input.value);
         updateDerivedScores();
         save();
       });
       input.addEventListener("change", () => {
         if (!state.rounds[ri]) state.rounds[ri] = emptyRound(players.length);
         state.rounds[ri][ci] = input.value;
+        setScoreOffset(wrap, input.value);
         updateDerivedScores();
         save();
       });
       wrap.appendChild(input);
       if (ri > 0) {
-        wrap.classList.add("has-running");
-        const totalText = `(${formatTotal(roundTotals[ci] ?? 0)})`;
-        const balance = document.createElement("span");
-        balance.className = "run-paren-balance";
-        balance.setAttribute("aria-hidden", "true");
-        balance.textContent = totalText;
+        setScoreOffset(wrap, row[ci] ?? "");
         const paren = document.createElement("span");
         paren.className = "run-paren";
-        paren.textContent = totalText;
+        paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
         if (roundLeaders.has(ci)) paren.classList.add("is-leader");
-        wrap.prepend(balance);
         wrap.appendChild(paren);
       }
       td.appendChild(wrap);
@@ -361,7 +365,10 @@ function renderGame() {
   totals.forEach((t, i) => {
     const td = document.createElement("td");
     td.dataset.totalIndex = String(i);
-    td.textContent = formatTotal(t);
+    const badge = document.createElement("span");
+    badge.className = "total-badge";
+    badge.textContent = formatTotal(t);
+    td.appendChild(badge);
     if (overallLeaders.has(i)) td.classList.add("is-leader");
     footRow.appendChild(td);
   });
@@ -385,19 +392,21 @@ function updateDerivedScores() {
     const roundLeaders = new Set(leaderIndices(roundTotals));
     tr.querySelectorAll("td[data-player-index]").forEach((td) => {
       const ci = Number(td.dataset.playerIndex);
+      const wrap = td.querySelector(".score-wrap");
+      const input = td.querySelector("input");
       const paren = td.querySelector(".run-paren");
-      const balance = td.querySelector(".run-paren-balance");
       if (!paren) return;
-      const text = `(${formatTotal(roundTotals[ci] ?? 0)})`;
-      paren.textContent = text;
-      if (balance) balance.textContent = text;
+      if (wrap && input) setScoreOffset(wrap, input.value);
+      paren.textContent = `(${formatTotal(roundTotals[ci] ?? 0)})`;
       paren.classList.toggle("is-leader", roundLeaders.has(ci));
     });
   });
 
   els.scoreGrid.querySelectorAll("tfoot td[data-total-index]").forEach((td) => {
     const i = Number(td.dataset.totalIndex);
-    td.textContent = formatTotal(totals[i] ?? 0);
+    const badge = td.querySelector(".total-badge");
+    if (badge) badge.textContent = formatTotal(totals[i] ?? 0);
+    else td.textContent = formatTotal(totals[i] ?? 0);
     td.classList.toggle("is-leader", overallLeaders.has(i));
   });
 }
