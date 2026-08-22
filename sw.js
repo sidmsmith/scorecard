@@ -1,4 +1,4 @@
-const CACHE_NAME = "scorecard-cache-v2";
+const CACHE_NAME = "scorecard-cache-v3";
 const APP_SHELL_URLS = ["/scorecard.css", "/lib/scorecard-engine.js", "/manifest.json", "/scorecard-192.png", "/scorecard-512.png"];
 
 async function warmAppShellCache() {
@@ -61,13 +61,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first for static assets: always prefer the latest deployed CSS/JS/icons
+  // when online (avoids serving a stale cached file alongside freshly deployed HTML
+  // while this worker is still updating). Cache is only a fallback for offline use.
   event.respondWith(
     (async () => {
-      const cachedResponse = await caches.match(request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
       try {
         const networkResponse = await fetch(request);
         if (networkResponse && networkResponse.ok) {
@@ -81,6 +79,10 @@ self.addEventListener("fetch", (event) => {
         }
         return networkResponse;
       } catch (error) {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
         return new Response("", { status: 204 });
       }
     })()
